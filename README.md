@@ -33,6 +33,21 @@ python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000
 
 ```powershell
 python -m streamlit run frontend/streamlit_app.py --server.address 127.0.0.1 --server.port 8501
+
+### Windows quick launch
+
+To keep both services alive in separate windows on Windows, run:
+
+```powershell
+.\launch_detectnet.ps1
+```
+
+Or start them individually:
+
+```powershell
+.\start_backend.ps1
+.\start_frontend.ps1
+```
 ```
 
 ## Demo URLs
