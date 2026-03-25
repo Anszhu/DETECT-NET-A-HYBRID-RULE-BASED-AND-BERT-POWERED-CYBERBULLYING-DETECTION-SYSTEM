@@ -8,6 +8,10 @@ import requests
 import streamlit as st
 from streamlit.errors import StreamlitSecretNotFoundError
 
+from backend.app import analyze_payload
+from backend.models.schemas import AnalysisRequest
+from backend.services.analytics_service import load_dashboard_snapshot
+
 
 def get_api_url() -> str:
     env_url = os.getenv("API_URL")
@@ -21,6 +25,7 @@ def get_api_url() -> str:
 
 
 API_URL = get_api_url()
+USE_REMOTE_API = bool(os.getenv("API_URL"))
 
 
 st.set_page_config(
@@ -84,32 +89,44 @@ def annotate_text(text: str, highlights: list[Dict[str, object]]) -> str:
 
 
 def analyze_text(text: str) -> Dict[str, object] | None:
-    try:
-        response = requests.post(
-            f"{API_URL}/analyze",
-            json={"text": text, "source": "streamlit-ui", "consent": True},
-            timeout=15,
-        )
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as exc:
-        st.error(f"API connection failed: {exc}")
-        return None
+    if USE_REMOTE_API:
+        try:
+            response = requests.post(
+                f"{API_URL}/analyze",
+                json={"text": text, "source": "streamlit-ui", "consent": True},
+                timeout=15,
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as exc:
+            st.error(f"API connection failed: {exc}")
+            return None
+
+    result = analyze_payload(
+        AnalysisRequest(text=text, source="streamlit-standalone", consent=True)
+    )
+    return result.model_dump(mode="json")
 
 
 def fetch_dashboard() -> Dict[str, object]:
-    try:
-        response = requests.get(f"{API_URL}/dashboard", timeout=10)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException:
-        return {"total_requests": 0, "severity_counts": {}, "language_counts": {}, "avg_score": 0.0}
+    if USE_REMOTE_API:
+        try:
+            response = requests.get(f"{API_URL}/dashboard", timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException:
+            return {"total_requests": 0, "severity_counts": {}, "language_counts": {}, "avg_score": 0.0}
+
+    return load_dashboard_snapshot().model_dump(mode="json")
 
 
 st.sidebar.title("DetectNet")
 page = st.sidebar.radio("Navigate", ["Live Analysis", "Dashboard", "Project Notes"])
 st.sidebar.caption("Hybrid cyberbullying detection for English and Hindi")
-st.sidebar.markdown(f"[FastAPI docs]({API_URL}/docs)")
+if USE_REMOTE_API:
+    st.sidebar.markdown(f"[FastAPI docs]({API_URL}/docs)")
+else:
+    st.sidebar.caption("Standalone deployment mode enabled")
 
 
 if page == "Live Analysis":
