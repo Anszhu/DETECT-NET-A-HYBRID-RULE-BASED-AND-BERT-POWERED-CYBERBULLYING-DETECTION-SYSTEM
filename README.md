@@ -39,6 +39,7 @@ python -m streamlit run frontend/streamlit_app.py --server.address 127.0.0.1 --s
 To keep both services alive in separate windows on Windows, run:
 
 ```powershell
+Set-ExecutionPolicy -Scope Process Bypass
 .\launch_detectnet.ps1
 ```
 
