@@ -28,14 +28,6 @@ API_URL = get_api_url()
 USE_REMOTE_API = bool(os.getenv("API_URL"))
 
 
-st.set_page_config(
-    page_title="DetectNet",
-    page_icon="🛡️",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-
 CUSTOM_CSS = """
 <style>
     .stApp {
@@ -66,9 +58,6 @@ CUSTOM_CSS = """
     }
 </style>
 """
-
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
-
 
 def annotate_text(text: str, highlights: list[Dict[str, object]]) -> str:
     if not highlights:
@@ -120,113 +109,121 @@ def fetch_dashboard() -> Dict[str, object]:
     return load_dashboard_snapshot().model_dump(mode="json")
 
 
-st.sidebar.title("DetectNet")
-page = st.sidebar.radio("Navigate", ["Live Analysis", "Dashboard", "Project Notes"])
-st.sidebar.caption("Hybrid cyberbullying detection for English and Hindi")
-if USE_REMOTE_API:
-    st.sidebar.markdown(f"[FastAPI docs]({API_URL}/docs)")
-else:
-    st.sidebar.caption("Standalone deployment mode enabled")
-
-
-if page == "Live Analysis":
-    st.markdown(
-        """
-        <div class="hero">
-            <h1>DetectNet</h1>
-            <p>A hybrid rule-based and BERT-powered multilingual cyberbullying detection prototype.</p>
-            <p>Use this for a final year demo: enter English or Hindi text, inspect the rule evidence, and explain the weighted fusion score.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
+def main() -> None:
+    st.set_page_config(
+        page_title="DetectNet",
+        page_icon="🛡️",
+        layout="wide",
+        initial_sidebar_state="expanded",
     )
+    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
-    sample_text = st.selectbox(
-        "Quick demo sample",
-        [
-            "",
-            "You are such an idiot, nobody likes you.",
-            "Tu bewakoof hai, sab tumse nafrat karte hain.",
-            "Please stay calm, I want to help you report this abuse.",
-        ],
-    )
+    st.sidebar.title("DetectNet")
+    page = st.sidebar.radio("Navigate", ["Live Analysis", "Dashboard", "Project Notes"])
+    st.sidebar.caption("Hybrid cyberbullying detection for English and Hindi")
+    if USE_REMOTE_API:
+        st.sidebar.markdown(f"[FastAPI docs]({API_URL}/docs)")
+    else:
+        st.sidebar.caption("Standalone deployment mode enabled")
 
-    user_text = st.text_area(
-        "Enter a message for analysis",
-        value=sample_text,
-        height=180,
-        placeholder="Type social media text, chat content, or a comment here...",
-    )
+    if page == "Live Analysis":
+        st.markdown(
+            """
+            <div class="hero">
+                <h1>DetectNet</h1>
+                <p>A hybrid rule-based and BERT-powered multilingual cyberbullying detection prototype.</p>
+                <p>Use this for a final year demo: enter English or Hindi text, inspect the rule evidence, and explain the weighted fusion score.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    if st.button("Analyze Message", type="primary", use_container_width=True):
-        if not user_text.strip():
-            st.warning("Please enter some text first.")
-        else:
-            result = analyze_text(user_text)
-            if result:
-                col1, col2, col3, col4 = st.columns(4)
-                col1.metric("Language", result["language"])
-                col2.metric("Rule Score", f'{result["rule_engine"]["score"]:.2f}')
-                col3.metric("ML Confidence", f'{result["ml_engine"]["confidence"]:.2f}')
-                col4.metric("Severity", result["fused"]["severity"].upper())
+        sample_text = st.selectbox(
+            "Quick demo sample",
+            [
+                "",
+                "You are such an idiot, nobody likes you.",
+                "Tu bewakoof hai, sab tumse nafrat karte hain.",
+                "Please stay calm, I want to help you report this abuse.",
+            ],
+        )
 
-                st.subheader("Highlighted Evidence")
-                st.markdown(
-                    f"<div class='metric-card'>{annotate_text(user_text, result['rule_engine']['highlights'])}</div>",
-                    unsafe_allow_html=True,
-                )
+        user_text = st.text_area(
+            "Enter a message for analysis",
+            value=sample_text,
+            height=180,
+            placeholder="Type social media text, chat content, or a comment here...",
+        )
 
-                left, right = st.columns([1.3, 1])
-                with left:
-                    st.subheader("Explainability Panel")
-                    st.write(result["fused"]["math_note"])
-                    st.write(f"Risk band: {result['fused']['risk_band']}")
-                    st.write("ML reasoning:")
-                    for note in result["ml_engine"]["explanation"]:
-                        st.write(f"- {note}")
+        if st.button("Analyze Message", type="primary", use_container_width=True):
+            if not user_text.strip():
+                st.warning("Please enter some text first.")
+            else:
+                result = analyze_text(user_text)
+                if result:
+                    col1, col2, col3, col4 = st.columns(4)
+                    col1.metric("Language", result["language"])
+                    col2.metric("Rule Score", f'{result["rule_engine"]["score"]:.2f}')
+                    col3.metric("ML Confidence", f'{result["ml_engine"]["confidence"]:.2f}')
+                    col4.metric("Severity", result["fused"]["severity"].upper())
 
-                    st.write("Recommendations:")
-                    for note in result["recommendations"]:
-                        st.write(f"- {note}")
+                    st.subheader("Highlighted Evidence")
+                    st.markdown(
+                        f"<div class='metric-card'>{annotate_text(user_text, result['rule_engine']['highlights'])}</div>",
+                        unsafe_allow_html=True,
+                    )
 
-                with right:
-                    st.subheader("Rule Matches")
-                    if result["rule_engine"]["matches"]:
-                        st.dataframe(result["rule_engine"]["matches"], use_container_width=True, hide_index=True)
-                    else:
-                        st.info("No rule triggers detected.")
+                    left, right = st.columns([1.3, 1])
+                    with left:
+                        st.subheader("Explainability Panel")
+                        st.write(result["fused"]["math_note"])
+                        st.write(f"Risk band: {result['fused']['risk_band']}")
+                        st.write("ML reasoning:")
+                        for note in result["ml_engine"]["explanation"]:
+                            st.write(f"- {note}")
 
-                with st.expander("Evidence Log Summary", expanded=True):
-                    st.write(f"Timestamp: {result['evidence']['timestamp']}")
-                    st.write(f"SHA-256 hash: `{result['evidence']['request_hash']}`")
-                    st.write(result["disclaimer"])
+                        st.write("Recommendations:")
+                        for note in result["recommendations"]:
+                            st.write(f"- {note}")
 
-elif page == "Dashboard":
-    snapshot = fetch_dashboard()
+                    with right:
+                        st.subheader("Rule Matches")
+                        if result["rule_engine"]["matches"]:
+                            st.dataframe(result["rule_engine"]["matches"], use_container_width=True, hide_index=True)
+                        else:
+                            st.info("No rule triggers detected.")
 
-    st.title("Moderation Dashboard")
-    top1, top2, top3 = st.columns(3)
-    top1.metric("Total Requests", snapshot["total_requests"])
-    top2.metric("Average Score", snapshot["avg_score"])
-    top3.metric("Tracked Languages", len(snapshot["language_counts"]))
+                    with st.expander("Evidence Log Summary", expanded=True):
+                        st.write(f"Timestamp: {result['evidence']['timestamp']}")
+                        st.write(f"SHA-256 hash: `{result['evidence']['request_hash']}`")
+                        st.write(result["disclaimer"])
 
-    sev_counts = snapshot["severity_counts"] or {"no-data": 0}
-    lang_counts = snapshot["language_counts"] or {"no-data": 0}
+    elif page == "Dashboard":
+        snapshot = fetch_dashboard()
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Severity Distribution")
-        st.bar_chart(sev_counts)
-    with col2:
-        st.subheader("Language Share")
-        st.bar_chart(lang_counts)
+        st.title("Moderation Dashboard")
+        top1, top2, top3 = st.columns(3)
+        top1.metric("Total Requests", snapshot["total_requests"])
+        top2.metric("Average Score", snapshot["avg_score"])
+        top3.metric("Tracked Languages", len(snapshot["language_counts"]))
 
-    st.info("Dashboard metrics are built from hashed evidence logs stored locally for demo purposes.")
+        sev_counts = snapshot["severity_counts"] or {"no-data": 0}
+        lang_counts = snapshot["language_counts"] or {"no-data": 0}
 
-else:
-    st.title("Project Notes")
-    st.markdown(
-        """
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("Severity Distribution")
+            st.bar_chart(sev_counts)
+        with col2:
+            st.subheader("Language Share")
+            st.bar_chart(lang_counts)
+
+        st.info("Dashboard metrics are built from hashed evidence logs stored locally for demo purposes.")
+
+    else:
+        st.title("Project Notes")
+        st.markdown(
+            """
 ### Implemented in this build
 - Hybrid detection using a rule engine plus a transformer-ready ML scoring module
 - Automatic English/Hindi language detection without translation
@@ -244,5 +241,5 @@ else:
 - Replace the current offline ML module with a fine-tuned BERT or XLM-RoBERTa model
 - Add more Indian languages such as Tamil, Telugu, and Bengali
 - Integrate authentication, role-based access, and secure cloud evidence storage
-        """
-    )
+            """
+        )
